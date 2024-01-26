@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react';
+import personService from './services/personService';
 
-const PersonList = ({ persons }) => {
+const PersonList = ({ persons, deletePerson }) => {
   return (
     <ul>
       {persons.map((person) => (
-        <li key={person.id}>{person.name} {person.number}</li>
+        <li key={person.id}>{person.name} {person.number} <button onClick={() => deletePerson(person)}>delete</button></li>
       ))}
     </ul>
   );
@@ -32,24 +33,50 @@ const Filter = ({ filter, handleFilterChange }) => {
   );
 }
 
-const Persons = ({ filter, persons }) => {
+const Persons = ({ filter, persons, deletePerson }) => {
   return (
     filter === ""
-      ? <PersonList persons={persons} />
-      : <PersonList persons={persons.filter(e => e.name.includes(filter))} />
+      ? <PersonList persons={persons} deletePerson={deletePerson} />
+      : <PersonList persons={persons.filter(e => e.name.includes(filter))} deletePerson={deletePerson} />
   );
 }
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '040-123456', id: 1 },
-    { name: 'Ada Lovelace', number: '39-44-5323523', id: 2 },
-    { name: 'Dan Abramov', number: '12-43-234345', id: 3 },
-    { name: 'Mary Poppendieck', number: '39-23-6423122', id: 4 }
-  ])
+  const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
   const [filter, setFilter] = useState('');
+
+  const fetchPersons = async () => {
+    setPersons(await personService.getAll());
+  }
+
+  const createPerson = async (newPerson) => {
+    setPersons(persons.concat(await personService.create(newPerson)));
+    setNewName("");
+    setNewNumber("");
+  }
+
+  const deletePerson = async (person) => {
+    if (confirm(`Delete ${person.name}?`)) {
+      await personService.remove(person.id);
+
+      fetchPersons();
+    }
+  }
+
+  const updatePerson = async (id, person) => {
+    await personService.update(id, person);
+
+    setNewName("");
+    setNewNumber("");
+
+    fetchPersons();
+  }
+
+  useEffect(() => {
+    fetchPersons();
+  }, []);
 
   const handleFilterChange = (event) => {
     setFilter(event.target.value);
@@ -69,15 +96,16 @@ const App = () => {
     const personObject = {
       name: newName,
       number: newNumber,
-      id: persons.length + 1,
     }
 
-    if (persons.filter(e => e.name === newName).length > 0) {
-      alert(`${newName} is already added to phonebook`);
+    const filteredPersons = persons.filter(e => e.name === newName);
+
+    if (filteredPersons.length > 0) {
+      if (confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+        updatePerson(filteredPersons[0].id, personObject);
+      }
     } else {
-      setPersons(persons.concat(personObject));
-      setNewName("");
-      setNewNumber("");
+      createPerson(personObject);
     }
   }
 
@@ -94,7 +122,7 @@ const App = () => {
         handleSubmit={handleSubmit}
       />
       <h2>Numbers</h2>
-      <Persons filter={filter} persons={persons} />
+      <Persons filter={filter} persons={persons} deletePerson={deletePerson} />
     </div>
   )
 }
