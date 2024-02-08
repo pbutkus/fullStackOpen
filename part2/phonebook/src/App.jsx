@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import personService from './services/personService';
+import "./App.css";
 
 const PersonList = ({ persons, deletePerson }) => {
   return (
@@ -12,8 +13,6 @@ const PersonList = ({ persons, deletePerson }) => {
 }
 
 const PersonForm = ({ newName, newNumber, handleNameChange, handleNumberChange, handleSubmit }) => {
-
-
   return (
     <form onSubmit={handleSubmit}>
       <div>
@@ -41,37 +40,88 @@ const Persons = ({ filter, persons, deletePerson }) => {
   );
 }
 
+const Notification = ({ type, message, show }) => {
+  return (
+    <div className={`
+      notification
+      ${type === "error" ? "notification-error" : ""}
+      ${type === "success" ? "notification-success" : ""}
+      ${show ? "opacity-1" : ""}
+    `}>
+      <p>{message}</p>
+    </div>
+  );
+}
+
 const App = () => {
   const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
   const [filter, setFilter] = useState('');
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationType, setNotificationType] = useState("");
+  const [notificationText, setNotificationText] = useState("");
 
   const fetchPersons = async () => {
     setPersons(await personService.getAll());
+  }
+
+  const showNotificationAlert = () => {
+    setShowNotification(true);
+
+    setTimeout(() => {
+      setShowNotification(false);
+    }, 5000);
   }
 
   const createPerson = async (newPerson) => {
     setPersons(persons.concat(await personService.create(newPerson)));
     setNewName("");
     setNewNumber("");
+    setNotificationText(`Added ${newPerson.name}`);
+    setNotificationType("success");
+    showNotificationAlert();
   }
 
   const deletePerson = async (person) => {
     if (confirm(`Delete ${person.name}?`)) {
-      await personService.remove(person.id);
+      try {
+        await personService.remove(person.id);
 
-      fetchPersons();
+        setNotificationText(`Deleted ${person.name}`);
+        setNotificationType("success");
+        showNotificationAlert();
+
+        fetchPersons();
+      } catch (error) {
+        setNotificationText(`Information of ${person.name} has already been removed from the server`);
+        setNotificationType("error");
+        showNotificationAlert();
+
+        fetchPersons();
+      }
     }
   }
 
   const updatePerson = async (id, person) => {
-    await personService.update(id, person);
+    try {
+      await personService.update(id, person);
 
-    setNewName("");
-    setNewNumber("");
+      setNewName("");
+      setNewNumber("");
 
-    fetchPersons();
+      setNotificationText(`Information of ${person.name} updated successfully`);
+      setNotificationType("success");
+      showNotificationAlert();
+
+      fetchPersons();
+    } catch (error) {
+      setNotificationText(`Information of ${person.name} has already been removed from the server`);
+      setNotificationType("error");
+      showNotificationAlert();
+
+      fetchPersons();
+    }
   }
 
   useEffect(() => {
@@ -110,7 +160,8 @@ const App = () => {
   }
 
   return (
-    <div>
+    <div className='container'>
+      <Notification message={notificationText} type={notificationType} show={showNotification} />
       <h2>Phonebook</h2>
       <Filter filter={filter} setFilter={setFilter} handleFilterChange={handleFilterChange} />
       <h2>Add a new</h2>
